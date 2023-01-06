@@ -11,7 +11,8 @@ import (
 )
 
 func init() {
-    intializers.LoadEnvVars()
+    initializers.LoadEnvVars()
+    initializers.ConnectToDB()
 }
 
 func main() {

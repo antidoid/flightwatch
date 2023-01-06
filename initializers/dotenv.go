@@ -1,4 +1,4 @@
-package intializers
+package initializers
 
 import (
 	"log"

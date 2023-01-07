@@ -1,17 +1,13 @@
 package models
 
-import (
-	"gorm.io/gorm"
-
-    "time"
-)
+import "gorm.io/gorm"
 
 type Search struct {
     gorm.Model
     Origin string 
     Destination string
-    StartAt time.Time
-    EndAt time.Time
+    StartAt string
+    EndAt string
     Contact string
     WayToContact string
 }

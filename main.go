@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/antidoid/fligthwatch/controllers"
-	"github.com/antidoid/fligthwatch/initializers"
+	"github.com/antidoid/flightwatch/controllers"
+	"github.com/antidoid/flightwatch/initializers"
 
 	"github.com/gofiber/fiber/v2"
     "github.com/gofiber/template/html"
@@ -25,9 +25,13 @@ func main() {
     })
 
     // Backend Routes
-	app.Get("/api/", func(c *fiber.Ctx) error {
-        return c.SendString("Hello, Universe!")
-	})
+    app.Post("/api/searchs", controllers.CreateSearch)
+    app.Put("/api/searchs/:id", controllers.UpdateSearch)
+
+	app.Get("/api/searchs", controllers.GetSearchs)
+    app.Get("/api/searchs/:id", controllers.GetSearch)
+
+    app.Delete("/api/searchs/:id", controllers.DeleteSearch)
 
     // Frontend Routes
     app.Get("/", controllers.Home)

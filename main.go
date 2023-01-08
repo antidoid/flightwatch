@@ -25,13 +25,13 @@ func main() {
     })
 
     // Backend Routes
-    app.Post("/api/searchs", controllers.CreateSearch)
-    app.Put("/api/searchs/:id", controllers.UpdateSearch)
+    app.Post("/api/tracks", controllers.CreateTrack)
+    app.Put("/api/tracks/:id", controllers.UpdateTrack)
 
-	app.Get("/api/searchs", controllers.GetSearchs)
-    app.Get("/api/searchs/:id", controllers.GetSearch)
+	app.Get("/api/tracks", controllers.GetTracks)
+    app.Get("/api/tracks/:id", controllers.GetTrack)
 
-    app.Delete("/api/searchs/:id", controllers.DeleteSearch)
+    app.Delete("/api/tracks/:id", controllers.DeleteTrack)
 
     // Frontend Routes
     app.Get("/", controllers.Home)

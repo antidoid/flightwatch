@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/antidoid/fligthwatch/initializers"
-	"github.com/antidoid/fligthwatch/models"
+	"github.com/antidoid/flightwatch/initializers"
+	"github.com/antidoid/flightwatch/models"
 )
 
 func init() {
@@ -11,5 +11,5 @@ func init() {
 }
 
 func main() {
-    initializers.DB.AutoMigrate(&models.Search{})
+    initializers.DB.AutoMigrate(&models.Track{})
 }

@@ -7,13 +7,13 @@ import (
 
 type Track struct {
     gorm.Model
-    Origin string `json:"origin" gorm:"not null"`
-    Destination string `json:"destination" gorm:"not null"`
-    StartAt string `json:"startat" gorm:"not null"`
-    EndAt string `json:"endat" gorm:"not null"`
-    Contact string `json:"contact" gorm:"not null"`
-    WayToContact string `json:"waytocontact" gorm:"not null"`
-    Threshold string `json:"threshold" gorm:"not null"`
+    Origin string `json:"origin"`
+    Destination string `json:"destination"`
+    StartAt string `json:"startat"`
+    EndAt string `json:"endat"`
+    Contact string `json:"contact"`
+    WayToContact string `json:"waytocontact"`
+    Threshold string `json:"threshold"`
     HasReachedThreshold bool `json:"hasreachedthreshold" gorm:"defualt:false"`
 }
 

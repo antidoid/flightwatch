@@ -7,7 +7,7 @@ import (
 	"github.com/antidoid/flightwatch/initializers"
 
 	"github.com/gofiber/fiber/v2"
-    "github.com/gofiber/template/html"
+	"github.com/gofiber/template/html"
 )
 
 func init() {
@@ -28,7 +28,7 @@ func main() {
     app.Post("/api/tracks", controllers.CreateTrack)
     app.Put("/api/tracks/:id", controllers.UpdateTrack)
 
-	app.Get("/api/tracks", controllers.GetTracks)
+    app.Get("/api/tracks", controllers.GetTracks)
     app.Get("/api/tracks/:id", controllers.GetTrack)
 
     app.Delete("/api/tracks/:id", controllers.DeleteTrack)
@@ -37,6 +37,7 @@ func main() {
     app.Get("/", controllers.Home)
 
     // Start the app
-	app.Listen(":" + os.Getenv("PORT"))
+    app.Listen(":" + os.Getenv("PORT"))
+
 }
 

@@ -38,6 +38,5 @@ func main() {
 
     // Start the app
     app.Listen(":" + os.Getenv("PORT"))
-
 }
 

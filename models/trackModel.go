@@ -12,7 +12,6 @@ type Track struct {
     StartAt string `json:"startat"`
     EndAt string `json:"endat"`
     Contact string `json:"contact"`
-    WayToContact string `json:"waytocontact"`
     Threshold string `json:"threshold"`
     HasReachedThreshold bool `json:"hasreachedthreshold" gorm:"defualt:false"`
 }
@@ -50,7 +49,6 @@ func UpdateTrack(track Track, newTrack Track) error {
         StartAt: newTrack.StartAt,
         EndAt: newTrack.EndAt,
         Contact: newTrack.Contact,
-        WayToContact: newTrack.WayToContact,
         HasReachedThreshold: newTrack.HasReachedThreshold,
     })
 

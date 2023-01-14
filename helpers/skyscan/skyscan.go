@@ -33,8 +33,8 @@ func scanTrack(track *models.Track) error {
         }
 
         if (hasHitThreshold(price, track.Threshold)) {
-            message := fmt.Sprintf("\nGreeting from FlightWatch\nYour tracked flight is currently priced at Rs%s\n Book now at: %s\nHave a nice day",
-                price, link)
+            message := fmt.Sprintf("\nGreeting from FlightWatch\nYour tracked flight from %s to %s on %s is currently priced at Rs%s\n Book now at: %s\nHave a nice day",
+                track.Origin, track.Destination, d, price, link)
             notify.SendSMS(track.Contact, message)
         }
     }
@@ -56,7 +56,6 @@ func scanAllTracks() error {
     return nil
 }
 
-// TODO: Add Date and origin and destination support
 // return Flight number, price and booking link
 func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, error) {
     payload := map[string]map[string]interface{}{

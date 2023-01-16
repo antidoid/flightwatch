@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"reflect"
+	"strconv"
 
 	"github.com/antidoid/flightwatch/helpers/notify"
 	"github.com/antidoid/flightwatch/initializers"
@@ -41,7 +43,7 @@ func scanTrack(track *models.Track) error {
     return nil
 }
 
-func scanAllTracks() error {
+func ScanAllTracks() error {
     var tracks []models.Track
     // Get the database
     res := initializers.DB.Find(&tracks)
@@ -82,21 +84,48 @@ func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, 
         return "", "", err
     }
 
-    url := "https://partners.api.skyscanner.net/apiservices/v3/flights/live/search/create"
-    req, err := http.NewRequest("POST", url, bytes.NewBuffer(postBody))
-    req.Header.Add("Content-Type", "application/json")
-    req.Header.Add("x-api-key", "prtl6749387986743898559646983194")
+    createUrl := "https://partners.api.skyscanner.net/apiservices/v3/flights/live/search/create"
+    createReq, err := http.NewRequest("POST", createUrl, bytes.NewBuffer(postBody))
+    createReq.Header.Add("Content-Type", "application/json")
+    createReq.Header.Add("x-api-key", os.Getenv("SKYSCANNER_API_KEY"))
     if err != nil {
         return "", "", err
     }
 
-    res, err := http.DefaultClient.Do(req)
+    res, err := http.DefaultClient.Do(createReq)
     if err != nil {
         return "", "", err
     }
     defer res.Body.Close()
 
-    responseData, _ := ioutil.ReadAll(res.Body)
+    createResponseData, _ := ioutil.ReadAll(res.Body)
+
+    type CreateRespone struct {
+        SessionToken string `json:"sessionToken"`
+        Status string `json:"status"`
+    }
+
+    var createRespBody CreateRespone
+    err = json.Unmarshal(createResponseData, &createRespBody)
+    if err != nil {
+        return "", "", err
+    }
+
+    pollUrl :=  "https://partners.api.skyscanner.net/apiservices/v3/flights/live/search/poll/" + createRespBody.SessionToken
+    pollReq, err := http.NewRequest("POST", pollUrl, bytes.NewBuffer(postBody))
+    pollReq.Header.Add("Content-Type", "application/json")
+    pollReq.Header.Add("x-api-key", os.Getenv("SKYSCANNER_API_KEY"))
+    if err != nil {
+        return "", "", err
+    }
+
+    pollRes, err := http.DefaultClient.Do(pollReq)
+    if err != nil {
+        return "", "", err
+    }
+    defer res.Body.Close()
+
+    pollRespData, _ := ioutil.ReadAll(pollRes.Body)
 
     type Content struct {
         Results map[string]map[string]map[string][]map[string][]map[string]interface{} `json:"results"`
@@ -109,22 +138,25 @@ func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, 
         Content `json:"content"`
     }
 
-    var respBody Response
-    json.Unmarshal(responseData, &respBody)
+    var pollRespBody Response
+    err = json.Unmarshal(pollRespData, &pollRespBody)
+    if err != nil {
+        return "", "", err
+    }
 
-    itenaryId := respBody.Content.SortingOptions["cheapest"][0]["itineraryId"]
-    cheapestFlight := respBody.Content.Results["itineraries"][itenaryId]["pricingOptions"][0]["items"][0]
+    itenaryId := pollRespBody.Content.SortingOptions["cheapest"][0]["itineraryId"]
+    cheapestFlight := pollRespBody.Content.Results["itineraries"][itenaryId]["pricingOptions"][0]["items"][0]
 
     var link string
     var price string
 
-    chvalue := reflect.ValueOf(cheapestFlight)
-    for _, e := range chvalue.MapKeys() {
+    cheapestFlightValue := reflect.ValueOf(cheapestFlight)
+    for _, e := range cheapestFlightValue.MapKeys() {
         key := e.Interface().(string)
         if key == "deepLink" {
-            link = chvalue.MapIndex(e).Interface().(string)
+            link = cheapestFlightValue.MapIndex(e).Interface().(string)
         } else if key == "price" {
-            temp := chvalue.MapIndex(e).Interface().(map[string]interface{})["amount"]
+            temp := cheapestFlightValue.MapIndex(e).Interface().(map[string]interface{})["amount"]
             price = fmt.Sprintf("%v", temp)
         }
     }
@@ -132,6 +164,11 @@ func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, 
     return price, link, nil
 }
 
-// If current price has hit threshold -> notify user
-func hasHitThreshold(price string, threshold string) bool 
+// Unit of price is in MILLI so in DB threshold should also be in MILLI
+func hasHitThreshold(price string, threshold string) bool {
+    priceVal, _ := strconv.ParseInt(price[:len(price) - 3], 10, 64)
+    thresholdVal, _ := strconv.ParseInt(threshold[:len(threshold) - 3], 10, 64)
+
+    return priceVal <= thresholdVal
+}
 

@@ -27,6 +27,15 @@ func scanTrack(track *models.Track) error {
     startDate := getDate(track.StartAt)
     endDate := getDate(track.EndAt)
 
+    // If today > endDate => notify the user that flight never hit threshold and delte from db
+    if (date.TodayUTC().Sub(endDate) > 0) {
+        message := fmt.Sprintf("\nGreeting from FlightWatch\n, This is to inform you that your tracked flight from %s to %s never went below %s",
+            track.Origin, track.Destination, track.Threshold)
+        notify.SendSMS(track.Contact, message)
+        tx := initializers.DB.Unscoped().Delete(&track)
+        return tx.Error
+    }
+
     for d := startDate; d.Sub(endDate) <= 0; d = d.Add(1) {
         // Check if price has reached threshold
         price, link, err := getCheapestFlight(track.Origin, track.Destination, d)
@@ -38,6 +47,8 @@ func scanTrack(track *models.Track) error {
             message := fmt.Sprintf("\nGreeting from FlightWatch\nYour tracked flight from %s to %s on %s is currently priced at Rs%s\n Book now at: %s\nHave a nice day",
                 track.Origin, track.Destination, d, price, link)
             notify.SendSMS(track.Contact, message)
+            tx := initializers.DB.Unscoped().Delete(&track)
+            return tx.Error
         }
     }
     return nil
@@ -167,7 +178,7 @@ func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, 
 // Unit of price is in MILLI so in DB threshold should also be in MILLI
 func hasHitThreshold(price string, threshold string) bool {
     priceVal, _ := strconv.ParseInt(price[:len(price) - 3], 10, 64)
-    thresholdVal, _ := strconv.ParseInt(threshold[:len(threshold) - 3], 10, 64)
+    thresholdVal, _ := strconv.ParseInt(threshold, 10, 64)
 
     return priceVal <= thresholdVal
 }

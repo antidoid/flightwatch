@@ -14,6 +14,7 @@ type Track struct {
     Contact string `json:"contact"`
     Threshold string `json:"threshold"`
     HasReachedThreshold bool `json:"hasreachedthreshold" gorm:"defualt:false"`
+    UserIp string
 }
 
 func CreateTrack(track Track) error {

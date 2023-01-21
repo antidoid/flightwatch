@@ -17,6 +17,7 @@ func CreateTrack(c *fiber.Ctx) error {
             "message": "Error parsing incoming JSON " + err.Error(),
         })
     }
+    track.UserIp = c.IP()
 
     // Create a track
     err = models.CreateTrack(track)

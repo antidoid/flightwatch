@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"reflect"
 	"strconv"
 
 	"github.com/antidoid/flightwatch/helpers/notify"
@@ -20,6 +19,39 @@ import (
 func getDate(d string) (date.Date) {
     res, _ := date.Parse("2006-01-02", d)
     return res
+}
+
+type Culture struct {
+    Market map[string]string `json:"market"`
+    Locale map[string]string `json:"locale"`
+}
+
+func getNearestCulture(ip string) (Culture, error) {
+    var culture Culture
+    url := "https://partners.api.skyscanner.net/apiservices/v3/culture/nearestculture?ipAddress=" + ip
+    req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return culture, err
+    }
+    req.Header.Add("x-api-key", os.Getenv("SKYSCANNER_API_KEY"))
+
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return culture, err
+    }
+
+    defer resp.Body.Close()
+    body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        return culture, err
+    }
+
+    err = json.Unmarshal(body, &culture)
+    if err != nil {
+        return culture, err
+    }
+
+    return culture, nil
 }
 
 func scanTrack(track *models.Track) error {
@@ -38,7 +70,7 @@ func scanTrack(track *models.Track) error {
 
     for d := startDate; d.Sub(endDate) <= 0; d = d.Add(1) {
         // Check if price has reached threshold
-        price, link, err := getCheapestFlight(track.Origin, track.Destination, d)
+        price, link, err := getCheapestFlight(track.Origin, track.Destination, track.UserIp, d)
         if err != nil {
             return err
         }
@@ -69,13 +101,18 @@ func ScanAllTracks() error {
     return nil
 }
 
-// return Flight number, price and booking link
-func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, error) {
+// return price and booking link
+func getCheapestFlight(ogn string, dsn string, ip string, date date.Date) (string, string, error) {
+    cl, err := getNearestCulture(ip)
+    if err != nil {
+        return "", "", err 
+    }
+
     payload := map[string]map[string]interface{}{
         "query": {
-            "market": "IN",
-            "locale": "en-GB",
-            "currency": "INR",
+            "market": cl.Market["code"],
+            "locale": cl.Locale["code"],
+            "currency": cl.Market["currency"],
             "cabinClass": "CABIN_CLASS_ECONOMY",
             "adults": 1,
             "queryLegs": []map[string]interface{}{{
@@ -109,7 +146,7 @@ func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, 
     }
     defer res.Body.Close()
 
-    createResponseData, _ := ioutil.ReadAll(res.Body)
+    createRespData, _ := ioutil.ReadAll(res.Body)
 
     type CreateRespone struct {
         SessionToken string `json:"sessionToken"`
@@ -117,13 +154,13 @@ func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, 
     }
 
     var createRespBody CreateRespone
-    err = json.Unmarshal(createResponseData, &createRespBody)
+    err = json.Unmarshal(createRespData, &createRespBody)
     if err != nil {
         return "", "", err
     }
 
     pollUrl :=  "https://partners.api.skyscanner.net/apiservices/v3/flights/live/search/poll/" + createRespBody.SessionToken
-    pollReq, err := http.NewRequest("POST", pollUrl, bytes.NewBuffer(postBody))
+    pollReq, err := http.NewRequest("POST", pollUrl, nil)
     pollReq.Header.Add("Content-Type", "application/json")
     pollReq.Header.Add("x-api-key", os.Getenv("SKYSCANNER_API_KEY"))
     if err != nil {
@@ -134,18 +171,25 @@ func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, 
     if err != nil {
         return "", "", err
     }
-    defer res.Body.Close()
+    defer pollRes.Body.Close()
 
     pollRespData, _ := ioutil.ReadAll(pollRes.Body)
 
+    type Iternary struct {
+        PricingOptions []map[string]interface{} `json:"pricingOptions"`
+    }
+
+    type Results struct {
+        Itenararies map[string]Iternary `json:"itineraries"`
+    }
+
     type Content struct {
-        Results map[string]map[string]map[string][]map[string][]map[string]interface{} `json:"results"`
-        SortingOptions map[string][]map[string]string `json:"sortingOptions"`
+        SortingOptions map[string][]map[string]interface{} `json:"sortingOptions"`
+        Results `json:"results"`
     }
 
     type Response struct {
         SessionToken string `json:"sessionToken"`
-        Status string `json:"status"`
         Content `json:"content"`
     }
 
@@ -155,29 +199,16 @@ func getCheapestFlight(ogn string, dsn string, date date.Date) (string, string, 
         return "", "", err
     }
 
-    itenaryId := pollRespBody.Content.SortingOptions["cheapest"][0]["itineraryId"]
-    cheapestFlight := pollRespBody.Content.Results["itineraries"][itenaryId]["pricingOptions"][0]["items"][0]
-
-    var link string
-    var price string
-
-    cheapestFlightValue := reflect.ValueOf(cheapestFlight)
-    for _, e := range cheapestFlightValue.MapKeys() {
-        key := e.Interface().(string)
-        if key == "deepLink" {
-            link = cheapestFlightValue.MapIndex(e).Interface().(string)
-        } else if key == "price" {
-            temp := cheapestFlightValue.MapIndex(e).Interface().(map[string]interface{})["amount"]
-            price = fmt.Sprintf("%v", temp)
-        }
-    }
+    itineraryId := fmt.Sprintf("%v", pollRespBody.Content.SortingOptions["cheapest"][0]["itineraryId"])
+    price := fmt.Sprintf("%v", pollRespBody.Content.Results.Itenararies[itineraryId].PricingOptions[0]["price"].(map[string]interface{})["amount"])
+    link := fmt.Sprintf("%v", pollRespBody.Content.Results.Itenararies[itineraryId].PricingOptions[0]["items"].([]interface{})[0].(map[string]interface{})["deepLink"])
 
     return price, link, nil
+
 }
 
-// Unit of price is in MILLI so in DB threshold should also be in MILLI
 func hasHitThreshold(price string, threshold string) bool {
-    priceVal, _ := strconv.ParseInt(price[:len(price) - 3], 10, 64)
+    priceVal, _ := strconv.ParseInt(price[:len(price) - 3], 10, 64) // Price unit in mill
     thresholdVal, _ := strconv.ParseInt(threshold, 10, 64)
 
     return priceVal <= thresholdVal

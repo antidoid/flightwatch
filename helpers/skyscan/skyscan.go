@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/antidoid/flightwatch/helpers/notify"
+	"github.com/antidoid/flightwatch/helpers/cuttly"
 	"github.com/antidoid/flightwatch/initializers"
 	"github.com/antidoid/flightwatch/models"
 
@@ -75,9 +76,11 @@ func scanTrack(track *models.Track) error {
             return err
         }
 
+        shortLink, err := cuttly.GetShortUrl(link)
+
         if (hasHitThreshold(price, track.Threshold)) {
             message := fmt.Sprintf("\nGreeting from FlightWatch\nYour tracked flight from %s to %s on %s is currently priced at Rs%s\n Book now at: %s\nHave a nice day",
-                track.Origin, track.Destination, d, price, link)
+                track.Origin, track.Destination, d, price, shortLink)
             notify.SendSMS(track.Contact, message)
             tx := initializers.DB.Unscoped().Delete(&track)
             return tx.Error
@@ -161,7 +164,6 @@ func getCheapestFlight(ogn string, dsn string, ip string, date date.Date) (strin
 
     pollUrl :=  "https://partners.api.skyscanner.net/apiservices/v3/flights/live/search/poll/" + createRespBody.SessionToken
     pollReq, err := http.NewRequest("POST", pollUrl, nil)
-    pollReq.Header.Add("Content-Type", "application/json")
     pollReq.Header.Add("x-api-key", os.Getenv("SKYSCANNER_API_KEY"))
     if err != nil {
         return "", "", err

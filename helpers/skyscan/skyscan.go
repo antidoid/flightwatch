@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
-	"github.com/antidoid/flightwatch/helpers/notify"
 	"github.com/antidoid/flightwatch/helpers/cuttly"
+	"github.com/antidoid/flightwatch/helpers/notify"
 	"github.com/antidoid/flightwatch/initializers"
 	"github.com/antidoid/flightwatch/models"
 
@@ -55,7 +57,7 @@ func getNearestCulture(ip string) (Culture, error) {
     return culture, nil
 }
 
-func scanTrack(track *models.Track) error {
+func scanTrack(track *models.Track) {
     // Loop from start date to end date
     startDate := getDate(track.StartAt)
     endDate := getDate(track.EndAt)
@@ -66,42 +68,56 @@ func scanTrack(track *models.Track) error {
             track.Origin, track.Destination, track.Threshold)
         notify.SendSMS(track.Contact, message)
         tx := initializers.DB.Unscoped().Delete(&track)
-        return tx.Error
+        if (tx.Error != nil) {
+            log.Fatal("Error deleting a finished track from database", tx.Error.Error())
+        }
     }
 
     for d := startDate; d.Sub(endDate) <= 0; d = d.Add(1) {
         // Check if price has reached threshold
         price, link, err := getCheapestFlight(track.Origin, track.Destination, track.UserIp, d)
-        if err != nil {
-            return err
-        }
-
         shortLink, err := cuttly.GetShortUrl(link)
 
+        if err != nil {
+            log.Fatal("Error finding the chepapes flight", err.Error())
+        }
+
+        fmt.Printf("price: %v\n", price)
+        fmt.Printf("track.Threshold: %v\n", track.Threshold)
         if (hasHitThreshold(price, track.Threshold)) {
             message := fmt.Sprintf("\nGreeting from FlightWatch\nYour tracked flight from %s to %s on %s is currently priced at Rs%s\n Book now at: %s\nHave a nice day",
                 track.Origin, track.Destination, d, price, shortLink)
             notify.SendSMS(track.Contact, message)
             tx := initializers.DB.Unscoped().Delete(&track)
-            return tx.Error
+            if (tx.Error != nil) {
+                log.Fatal("Error deleting pm_HilTWe3CL1Vvesi6gbbdPVSLrxqx8a finished track from database", tx.Error.Error())
+            }
         }
+        time.Sleep(time.Second * 20)
     }
-    return nil
 }
 
-func ScanAllTracks() error {
-    var tracks []models.Track
-    // Get the database
-    res := initializers.DB.Find(&tracks)
-    if res.Error != nil {
-        return res.Error
-    }
+// Calling this function every six hour with a delay of 10min b/w each individual Track and 20s b/w each day of that Track =>
+// Which allows me to accomodate 36 tracks of 1month range at max in database using free teer of cuttly and skyscanner
+func ScanAllTracks() {
+    for range time.Tick(time.Hour * 6) {
+        var tracks []models.Track
+        // Get the database
+        res := initializers.DB.Find(&tracks)
+        if res.Error != nil {
+            log.Fatal("Error finding tracks in database")
+        }
 
-    // query over each row
-    for _, track := range tracks {
-        scanTrack(&track)
+        // query over each row
+        i := 0
+        for range time.Tick(time.Minute * 10) {
+            go scanTrack(&tracks[i])
+            i++
+            if i == len(tracks) {
+                break
+            }
+        }
     }
-    return nil
 }
 
 // return price and booking link

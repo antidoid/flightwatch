@@ -5,6 +5,7 @@ import (
 
 	"github.com/antidoid/flightwatch/controllers"
 	"github.com/antidoid/flightwatch/initializers"
+	"github.com/antidoid/flightwatch/helpers/skyscan"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/template/html"
@@ -16,6 +17,9 @@ func init() {
 }
 
 func main() {
+    // Backend Tasks
+    go skyscan.ScanAllTracks()
+
     // Load templates
     engine := html.New("./views", ".html")
 

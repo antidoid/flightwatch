@@ -51,6 +51,7 @@ func UpdateTrack(track Track, newTrack Track) error {
         EndAt: newTrack.EndAt,
         Contact: newTrack.Contact,
         HasReachedThreshold: newTrack.HasReachedThreshold,
+        Threshold: newTrack.Threshold,
     })
 
     return tx.Error

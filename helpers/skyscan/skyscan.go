@@ -103,9 +103,13 @@ func ScanAllTracks() {
     for range time.Tick(time.Hour * 6) {
         var tracks []models.Track
         // Get the database
-        res := initializers.DB.Find(&tracks)
-        if res.Error != nil {
+        tx := initializers.DB.Find(&tracks)
+        if tx.Error != nil {
             log.Fatal("Error finding tracks in database")
+        }
+
+        if (len(tracks) == 0) {
+            continue
         }
 
         // query over each row

@@ -31,9 +31,6 @@ func main() {
 
     app.Delete("/api/tracks/:id", controllers.DeleteTrack)
 
-    // Frontend Routes
-    app.Get("/", controllers.Home)
-
     // Start the app
     app.Listen(":" + os.Getenv("PORT"))
 }

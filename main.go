@@ -8,7 +8,6 @@ import (
 	"github.com/antidoid/flightwatch/helpers/skyscan"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/template/html"
 )
 
 func init() {
@@ -20,13 +19,8 @@ func main() {
     // Backend Tasks
     go skyscan.ScanAllTracks()
 
-    // Load templates
-    engine := html.New("./views", ".html")
-
     // Setup App
-	app := fiber.New(fiber.Config{
-        Views: engine,
-    })
+	app := fiber.New()
 
     // Backend Routes
     app.Post("/api/tracks", controllers.CreateTrack)

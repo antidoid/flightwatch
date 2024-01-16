@@ -1,0 +1,25 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "go_1_19@latest": {
+      "last_modified": "2024-01-02T02:19:20Z",
+      "resolved": "github:NixOS/nixpkgs/63143ac2c9186be6d9da6035fa22620018c85932#go_1_19",
+      "source": "devbox-search",
+      "version": "1.19.13",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/52h8wcypixcr18pwp88b2gz4c9s37rr9-go-1.19.13"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/hkc9k7xnvrsxs54hsambf1qfrg21j4yq-go-1.19.13"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/n4dl1bcwqqx2wr96cwvsnjms1sk9yrx5-go-1.19.13"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/kpc3309laj7cnf7gcaw6kmckaqx1dc5v-go-1.19.13"
+        }
+      }
+    }
+  }
+}

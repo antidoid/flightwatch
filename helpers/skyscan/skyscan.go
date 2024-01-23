@@ -25,8 +25,9 @@ func getDate(d string) date.Date {
 }
 
 type Culture struct {
-	Market map[string]string `json:"market"`
-	Locale map[string]string `json:"locale"`
+	Market   map[string]string      `json:"market"`
+	Locale   map[string]string      `json:"locale"`
+	Currency map[string]interface{} `json:"currency"`
 }
 
 func getNearestCulture(ip string) (Culture, error) {
@@ -73,9 +74,14 @@ func scanTrack(track *models.Track) {
 		}
 	}
 
+	cl, err := getNearestCulture(track.UserIp)
+	if err != nil {
+		log.Fatal("Error getting the culture of the user", err.Error())
+	}
+
 	for d := startDate; d.Sub(endDate) <= 0; d = d.Add(1) {
 		// Check if price has reached threshold
-		price, link, err := getCheapestFlight(track.Origin, track.Destination, track.UserIp, d, track.Currency)
+		price, link, err := getCheapestFlight(track.Origin, track.Destination, d, cl)
 
 		if err != nil {
 			log.Fatal("Error finding the cheapest flight", err.Error())
@@ -88,8 +94,9 @@ func scanTrack(track *models.Track) {
 		}
 
 		if hasHitThreshold(price, track.Threshold) {
-			message := fmt.Sprintf("\nGreetings from FlightWatch\nYour tracked flight from %s to %s on %s is currently priced at %v %s\nBook now at: %s\nHave a nice day",
-				track.Origin, track.Destination, d, price, track.Currency, shortLink)
+			date := d.Format("Jan 2")
+			message := fmt.Sprintf("\nGreetings from FlightWatch\nYour tracked flight from %s to %s on %s is currently priced at %v %s\nBook now at: %s\nHave a nice day :)",
+				track.Origin, track.Destination, date, cl.Currency["symbol"], price, shortLink)
 
 			err = notify.SendSMS(track.Contact, message)
 			if err != nil {
@@ -134,17 +141,14 @@ func ScanAllTracks() {
 }
 
 // return price and booking link
-func getCheapestFlight(ogn string, dsn string, ip string, date date.Date, currency string) (string, string, error) {
-	cl, err := getNearestCulture(ip)
-	if err != nil {
-		return "", "", err
-	}
+func getCheapestFlight(ogn string, dsn string, date date.Date, cl Culture) (string, string, error) {
 
+	// Creating the payload
 	payload := map[string]map[string]interface{}{
 		"query": {
 			"market":     cl.Market["code"],
 			"locale":     cl.Locale["code"],
-			"currency":   currency,
+			"currency":   cl.Currency["code"],
 			"cabinClass": "CABIN_CLASS_ECONOMY",
 			"adults":     1,
 			"queryLegs": []map[string]interface{}{{

@@ -13,8 +13,7 @@ type Track struct {
 	EndAt       string `json:"endat"`
 	Contact     string `json:"contact"`
 	Threshold   string `json:"threshold"`
-	Currency    string `json:"currency"`
-	UserIp      string
+	UserIp      string `json:"userip"`
 }
 
 func CreateTrack(track Track) error {
@@ -50,7 +49,7 @@ func UpdateTrack(track Track, newTrack Track) error {
 		EndAt:       newTrack.EndAt,
 		Contact:     newTrack.Contact,
 		Threshold:   newTrack.Threshold,
-		Currency:    newTrack.Currency,
+		UserIp:      newTrack.UserIp,
 	})
 
 	return tx.Error

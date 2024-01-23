@@ -13,12 +13,10 @@ import (
 func init() {
     initializers.LoadEnvVars()
     initializers.ConnectToDB()
+    go skyscan.ScanAllTracks()
 }
 
 func main() {
-    // Backend Tasks
-    go skyscan.ScanAllTracks()
-
     // Setup App
 	app := fiber.New()
 

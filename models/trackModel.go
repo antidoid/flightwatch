@@ -6,58 +6,57 @@ import (
 )
 
 type Track struct {
-    gorm.Model
-    Origin string `json:"origin"`
-    Destination string `json:"destination"`
-    StartAt string `json:"startat"`
-    EndAt string `json:"endat"`
-    Contact string `json:"contact"`
-    Threshold string `json:"threshold"`
-    HasReachedThreshold bool `json:"hasreachedthreshold" gorm:"defualt:false"`
-    UserIp string
+	gorm.Model
+	Origin      string `json:"origin"`
+	Destination string `json:"destination"`
+	StartAt     string `json:"startat"`
+	EndAt       string `json:"endat"`
+	Contact     string `json:"contact"`
+	Threshold   string `json:"threshold"`
+	Currency    string `json:"currency"`
+	UserIp      string
 }
 
 func CreateTrack(track Track) error {
-    tx := initializers.DB.Create(&track)
-    return tx.Error
+	tx := initializers.DB.Create(&track)
+	return tx.Error
 }
 
-
 func GetTracks() ([]Track, error) {
-    var tracks []Track
-    tx := initializers.DB.Order("ID asc").Find(&tracks)
-    if tx.Error != nil {
-        return []Track{}, tx.Error
-    }
+	var tracks []Track
+	tx := initializers.DB.Order("ID asc").Find(&tracks)
+	if tx.Error != nil {
+		return []Track{}, tx.Error
+	}
 
-    return tracks, nil
+	return tracks, nil
 }
 
 func GetTrack(id string) (Track, error) {
-    var track Track
-    tx := initializers.DB.First(&track, id)
-    if tx.Error != nil {
-        return Track{}, tx.Error
-    }
+	var track Track
+	tx := initializers.DB.First(&track, id)
+	if tx.Error != nil {
+		return Track{}, tx.Error
+	}
 
-    return track, nil
+	return track, nil
 }
 
 func UpdateTrack(track Track, newTrack Track) error {
-    tx := initializers.DB.Model(&track).Updates(Track{
-        Origin: newTrack.Origin,
-        Destination: newTrack.Destination,
-        StartAt: newTrack.StartAt,
-        EndAt: newTrack.EndAt,
-        Contact: newTrack.Contact,
-        HasReachedThreshold: newTrack.HasReachedThreshold,
-        Threshold: newTrack.Threshold,
-    })
+	tx := initializers.DB.Model(&track).Updates(Track{
+		Origin:      newTrack.Origin,
+		Destination: newTrack.Destination,
+		StartAt:     newTrack.StartAt,
+		EndAt:       newTrack.EndAt,
+		Contact:     newTrack.Contact,
+		Threshold:   newTrack.Threshold,
+		Currency:    newTrack.Currency,
+	})
 
-    return tx.Error
+	return tx.Error
 }
 
 func DeleteTrack(track Track) error {
-    tx := initializers.DB.Unscoped().Delete(&track)
-    return tx.Error
+	tx := initializers.DB.Unscoped().Delete(&track)
+	return tx.Error
 }

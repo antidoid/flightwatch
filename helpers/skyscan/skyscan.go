@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -44,7 +44,7 @@ func getNearestCulture(ip string) (Culture, error) {
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return culture, err
 	}
@@ -66,8 +66,7 @@ func scanTrack(track *models.Track) {
 	if date.TodayUTC().Sub(endDate) > 0 {
 		message := fmt.Sprintf("\nGreeting from FlightWatch\n, This is to inform you that your tracked flight from %s to %s never went below %s",
 			track.Origin, track.Destination, track.Threshold)
-		fmt.Println(message)
-		//	notify.SendSMS(track.Contact, message)
+		notify.SendSMS(track.Contact, message)
 		tx := initializers.DB.Unscoped().Delete(&track)
 		if tx.Error != nil {
 			log.Fatal("Error deleting a finished track from database", tx.Error.Error())
@@ -76,20 +75,21 @@ func scanTrack(track *models.Track) {
 
 	for d := startDate; d.Sub(endDate) <= 0; d = d.Add(1) {
 		// Check if price has reached threshold
-		price, link, err := getCheapestFlight(track.Origin, track.Destination, track.UserIp, d)
-		shortLink, err := cuttly.GetShortUrl(link)
+		price, link, err := getCheapestFlight(track.Origin, track.Destination, track.UserIp, d, track.Currency)
 
 		if err != nil {
 			log.Fatal("Error finding the cheapest flight", err.Error())
 		}
 
-		// FIX:
-		// Unable to convert the price value to a value which can be read and understood by humans
-		priceVal, _ := strconv.ParseInt(price[:len(price)-3], 10, 64) // Price unit in mill
+		shortLink, err := cuttly.GetShortUrl(link)
+		if shortLink == "" {
+			// Cuttly probabliy being a bish again
+			shortLink = link
+		}
 
 		if hasHitThreshold(price, track.Threshold) {
-			message := fmt.Sprintf("\nGreetings from FlightWatch\nYour tracked flight from %s to %s on %s is currently priced at Rs %v\nBook now at: %s\nHave a nice day",
-				track.Origin, track.Destination, d, priceVal, shortLink)
+			message := fmt.Sprintf("\nGreetings from FlightWatch\nYour tracked flight from %s to %s on %s is currently priced at %v %s\nBook now at: %s\nHave a nice day",
+				track.Origin, track.Destination, d, price, track.Currency, shortLink)
 
 			err = notify.SendSMS(track.Contact, message)
 			if err != nil {
@@ -109,7 +109,7 @@ func scanTrack(track *models.Track) {
 // Calling this function every six hour with a delay of 10min b/w each individual Track and 20s b/w each day of that Track =>
 // Which allows me to accomodate 36 tracks of 1month range at max in database using free teer of cuttly and skyscanner
 func ScanAllTracks() {
-	for range time.Tick(time.Minute * 2) {
+	for range time.Tick(time.Hour * 6) {
 		var tracks []models.Track
 		// Get the database
 		tx := initializers.DB.Find(&tracks)
@@ -123,7 +123,7 @@ func ScanAllTracks() {
 
 		// query over each row
 		i := 0
-		for range time.Tick(time.Second * 30) {
+		for range time.Tick(time.Minute * 10) {
 			scanTrack(&tracks[i])
 			i++
 			if i == len(tracks) {
@@ -134,7 +134,7 @@ func ScanAllTracks() {
 }
 
 // return price and booking link
-func getCheapestFlight(ogn string, dsn string, ip string, date date.Date) (string, string, error) {
+func getCheapestFlight(ogn string, dsn string, ip string, date date.Date, currency string) (string, string, error) {
 	cl, err := getNearestCulture(ip)
 	if err != nil {
 		return "", "", err
@@ -144,7 +144,7 @@ func getCheapestFlight(ogn string, dsn string, ip string, date date.Date) (strin
 		"query": {
 			"market":     cl.Market["code"],
 			"locale":     cl.Locale["code"],
-			"currency":   cl.Market["currency"],
+			"currency":   currency,
 			"cabinClass": "CABIN_CLASS_ECONOMY",
 			"adults":     1,
 			"queryLegs": []map[string]interface{}{{
@@ -178,7 +178,7 @@ func getCheapestFlight(ogn string, dsn string, ip string, date date.Date) (strin
 	}
 	defer res.Body.Close()
 
-	createRespData, _ := ioutil.ReadAll(res.Body)
+	createRespData, _ := io.ReadAll(res.Body)
 
 	type CreateRespone struct {
 		SessionToken string `json:"sessionToken"`
@@ -204,7 +204,7 @@ func getCheapestFlight(ogn string, dsn string, ip string, date date.Date) (strin
 	}
 	defer pollRes.Body.Close()
 
-	pollRespData, _ := ioutil.ReadAll(pollRes.Body)
+	pollRespData, _ := io.ReadAll(pollRes.Body)
 
 	type Iternary struct {
 		PricingOptions []map[string]interface{} `json:"pricingOptions"`
@@ -231,22 +231,45 @@ func getCheapestFlight(ogn string, dsn string, ip string, date date.Date) (strin
 	}
 
 	itineraryId := fmt.Sprintf("%v", pollRespBody.Content.SortingOptions["cheapest"][0]["itineraryId"])
-	price := fmt.Sprintf("%v", pollRespBody.Content.Results.Itenararies[itineraryId].PricingOptions[0]["price"].(map[string]interface{})["amount"])
+	priceWithUnit := fmt.Sprintf("%v", pollRespBody.Content.Results.Itenararies[itineraryId].PricingOptions[0]["price"].(map[string]interface{})["amount"])
+	priceUnit := fmt.Sprintf("%v", pollRespBody.Content.Results.Itenararies[itineraryId].PricingOptions[0]["price"].(map[string]interface{})["unit"])
 	link := fmt.Sprintf("%v", pollRespBody.Content.Results.Itenararies[itineraryId].PricingOptions[0]["items"].([]interface{})[0].(map[string]interface{})["deepLink"])
+
+	price, err := formatPrice(priceWithUnit, priceUnit)
+	if err != nil {
+		return "", "", err
+	}
 
 	return price, link, nil
 
 }
 
 func hasHitThreshold(price string, threshold string) bool {
-	fmt.Println("I was triggered")
-	// FIX:
-	// need to find a proper value for price currently
-	// I'm not sure what the unit of price is
-	priceVal, _ := strconv.ParseInt(price[:len(price)-3], 10, 64) // Price unit in mill
-	thresholdVal, _ := strconv.ParseInt(threshold, 10, 64)
+	priceVal, _ := strconv.Atoi(price)
+	thresholdVal, _ := strconv.Atoi(threshold)
 
-	fmt.Println("price: ", priceVal)
-	fmt.Println("thresold: ", thresholdVal)
 	return priceVal <= thresholdVal
+}
+
+func formatPrice(price string, unit string) (string, error) {
+	var multiplier int
+
+	switch unit {
+	case "PRICE_UNIT_WHOLE":
+		multiplier = 1
+	case "PRICE_UNIT_CENTI":
+		multiplier = 100
+	case "PRICE_UNIT_MILLI":
+		multiplier = 1000
+	case "PRICE_UNIT_MICRO":
+		multiplier = 1000000
+	}
+
+	amount, err := strconv.ParseFloat(price, 64)
+	if err != nil {
+		return "", err
+	}
+
+	formattedPrice := int(amount / float64(multiplier))
+	return fmt.Sprintf("%d", formattedPrice), nil
 }

@@ -113,8 +113,8 @@ func scanTrack(track *models.Track) {
 	}
 }
 
-// Calling this function every six hour with a delay of 10min b/w each individual Track and 20s b/w each day of that Track =>
-// Which allows me to accomodate 36 tracks of 1month range at max in database using free teer of cuttly and skyscanner
+// Polling the skyscanner api every six hour with a delay of 10min b/w each
+// individual Track and 20s b/w each day of that Track
 func ScanAllTracks() {
 	for range time.Tick(time.Hour * 6) {
 		var tracks []models.Track

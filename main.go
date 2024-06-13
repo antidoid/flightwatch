@@ -8,6 +8,7 @@ import (
 	"github.com/antidoid/flightwatch/initializers"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func init() {
@@ -19,6 +20,9 @@ func init() {
 func main() {
 	// Setup App
 	app := fiber.New()
+
+	// Setup CORS
+	app.Use(cors.New())
 
 	// Backend Routes
 	app.Post("/api/tracks", controllers.CreateTrack)
